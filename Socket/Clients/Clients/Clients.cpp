@@ -33,7 +33,7 @@ void ShowCur(bool CursorVisibility)
 }
 //Function to call CTR + C to exit
 void signal_callback_handler(int signum) {
-    cout << "Caught signal " << signum << endl;
+    cout << "\nDisconnect to Server!!\n";
     // Terminate program
     exit(signum);
 }
@@ -49,8 +49,9 @@ void GetinfoInputFile(char require_file[][20], int& n) {
     if (!fin) cout << "Cannot open file!!       ";
     else {
         int i = 0;
-        while (!fin.eof()) {
-            fin.getline(require_file[i], 20);
+        string line;
+        while (getline(fin, line)) {
+            strcpy_s(require_file[i], line.c_str());
             i++;
         }
         n = i;
@@ -61,24 +62,40 @@ void GetinfoInputFile(char require_file[][20], int& n) {
 void RecieveFile(CSocket &Client, char require_file[]) {
     string filename(require_file);
     ShowCur(0);
-    char buffer[1028];
     int file_size, bytes_recieve;
     //Recieve file size from server
     bytes_recieve = Client.Receive((char*)&file_size, sizeof(file_size), 0);
+    char buffer1[10000];
+    char* buffer2;
     if (bytes_recieve != sizeof(file_size)) { cout << "Cannot download!!\n"; return; }
     //Create a new file to store data
-    fstream fout("DataFile/" + filename, ios::out | ios::binary);
+    fstream fout("Data/" + filename, ios::out | ios::binary);
     int total_data = 0;
     cout << "......Downloading " << filename;
     while (total_data < file_size) {
-        //Recieve file data from Server
-        bytes_recieve = Client.Receive((char*)&buffer, sizeof(buffer), 0);
-        if (bytes_recieve < 1) { cout << "Cannot download!!\n"; return; }
-        //Store data to new file
-        fout.write((char*)&buffer, sizeof(buffer));
-        total_data += bytes_recieve;
-        //Print percent downloading
-        cout << "\r" << int((total_data / float(file_size)) * 100) << "%";
+        //Using char[] when it has still has more than 1028 bytes to download fastly
+        if (total_data <= file_size - 10000){
+            //Recieve file data from Server
+            bytes_recieve = Client.Receive((char*)&buffer1, sizeof(buffer1), 0);
+            if (bytes_recieve < 1) { cout << "\nCannot download!!\n"; return; }
+            //Store data to new file
+            fout.write((char*)&buffer1, sizeof(buffer1));
+            total_data += bytes_recieve;
+            //Print percent downloading
+            cout << "\r" << int((total_data / float(file_size)) * 100) << "%";
+        }
+        //Using char* when it just has a little bit of bytes to dowload exactly
+        else {
+            buffer2 = new char[file_size - total_data];
+            //Recieve file data from Server
+            bytes_recieve = Client.Receive(buffer2, file_size - total_data, 0);
+            if (bytes_recieve < 1) { cout << "\nCannot download!!\n"; return; }
+            //Store data to new file
+            fout.write(buffer2, file_size - total_data);
+            total_data += bytes_recieve;
+            //Print percent downloading
+            cout << "\r" << int((total_data / float(file_size)) * 100) << "%";
+        }
     }
     cout << endl;
     fout.close();

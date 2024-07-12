@@ -60,25 +60,41 @@ void SendFile(CSocket &Client, char require_file[]) {
 	fstream fin("Data/" + filename, ios::in | ios::binary);
 	if (!fin) cout << "Cannot open file!!\n";
 	else {
-		char buffer[1028];
 		int file_size, bytes_send, total_data = 0;
 		//Get file size
 		fin.seekg(0, ios::end);
 		file_size = fin.tellg();
 		fin.seekg(0, ios::beg);
+		//Create size buffer to store file data
+		char buffer1[10000];
+		char* buffer2;
 		//Send file size to client
 		bytes_send = Client.Send((char*)&file_size, sizeof(file_size), 0);
 		if (bytes_send < sizeof(file_size)) { cout << "Cannot send file!!\n"; return; }
 		cout << ".......Uploading " << filename;
 		while (total_data < file_size) {
-			//Get file data
-			fin.read((char*)&buffer, sizeof(buffer));
-			//Send file data to client
-			bytes_send = Client.Send((char*)&buffer, sizeof(buffer), 0);
-			if (bytes_send < 1) { cout << "Cannot send file!!\n"; return; }
-			total_data += bytes_send;
-			cout << "\r" << int((total_data / float(file_size)) * 100) << "%";
-		}
+			//Using char[] when it has still has more than 1028 bytes to upload fastly
+			if (total_data <= file_size - 10000) {
+				//Get file data
+				fin.read((char*)&buffer1, sizeof(buffer1));
+				//Send file data to client
+				bytes_send = Client.Send((char*)&buffer1, sizeof(buffer1), 0);
+				if (bytes_send < 1) { cout << "\nCannot send file!!\n"; return; }
+				total_data += bytes_send;
+				cout << "\r" << int((total_data / float(file_size)) * 100) << "%";
+			}
+			//Using char* when it just has a little bit of bytes to upload exactly
+			else {
+				buffer2 = new char[file_size - total_data];
+				//Get file data
+				fin.read(buffer2, file_size - total_data);
+				//Send file data to client
+				bytes_send = Client.Send(buffer2, file_size - total_data, 0);
+				if (bytes_send < 1) { cout << "\nCannot send file!!\n"; return; }
+				total_data += bytes_send;
+				cout << "\r" << int((total_data / float(file_size)) * 100) << "%";
+			}
+ 		}
 		cout << endl;
 	}
 	fin.close();
@@ -147,7 +163,7 @@ int main()
 						else cout << "'" << require_file[idx] << "'" << " is not found!!\n";
 					}
 					cout << "Waiting for downloading...";
-					Sleep(5000); cout << "\r";
+					Sleep(1000); cout << "\r";
 				}
 				SocketClients[i].Close();
 				cout << "Disconnect to Client " << i + 1 << " !!  \n";
