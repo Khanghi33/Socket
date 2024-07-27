@@ -5,6 +5,7 @@
 #include "framework.h"
 #include "Server.h"
 #include "afxsock.h"
+#include <filesystem>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -27,7 +28,7 @@ void ShowCur(bool CursorVisibility)
 	CONSOLE_CURSOR_INFO ConCurInf;
 
 	ConCurInf.dwSize = 10;
-	ConCurInf.bVisible = CursorVisibility;
+	ConCurInf.bVisible = CursorVisibility;	
 
 	SetConsoleCursorInfo(handle, &ConCurInf);
 }
@@ -64,8 +65,10 @@ void SendFile(CSocket &Client, char require_file[]) {
 		//Get file size
 		fin.seekg(0, ios::end);
 		file_size = fin.tellg();
+		//file_size = std::filesystem::file_size(filename);
 		fin.seekg(0, ios::beg);
 		//Create size buffer to store file data
+		//char* buffer1;
 		char buffer1[10000];
 		char* buffer2;
 		//Send file size to client
@@ -143,18 +146,20 @@ int main()
 				//Send Clients list of file can be downloaded
 				SocketClients[i].Send((char*)&i, sizeof(int), 0);
 				Datafile files[10]; int n_list = 0;
-				GetFileData(files, n_list);
+				GetFileData(files, n_list); int files_data = 0;
 				SocketClients[i].Send((char*)&n_list, sizeof(n_list), 0);
-				SocketClients[i].Send(files, sizeof(files), 0);
+				files_data = SocketClients[i].Send(files, sizeof(files), 0);
+				if (files_data == 0) { cout << "Cannot send files data!!\n"; continue; }
 				//Using idx as the number of file has been transfered
 				//So, Server had't to transfer them again
 				int idx = 0; bool flag;
 				//Real time trasfering
 				while (SocketClients[i].Receive((char*)&flag, sizeof(flag), 0) > 0) {
-					char require_file[20][20]; int list_refile;
+					char require_file[20][20]; int list_refile; int data_file = 0;
 					//Receive list file need to be download
 					SocketClients[i].Receive((char*)&list_refile, sizeof(list_refile), 0);
-					SocketClients[i].Receive((char*)&require_file, sizeof(require_file), 0);
+					data_file = SocketClients[i].Receive((char*)&require_file, sizeof(require_file), 0);
+					if (data_file == 0) { cout << "Cannot send file!!\n"; continue; }
 					SocketClients[i].Receive((char*)&idx, sizeof(idx), 0);
 					//Transfer file
 					for (; idx < list_refile; idx++) {

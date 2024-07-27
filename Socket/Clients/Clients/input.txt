@@ -1,6 +1,5 @@
+khang.zip
 file1.zip
 file2.zip
-file3.zip
-file4.zip
 file5.zip
-file6.zip
+filedata.txt

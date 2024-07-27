@@ -133,9 +133,10 @@ int main()
                 Client.Receive((char*)&id, sizeof(id), 0);
                 cout << "Client's id: " << id + 1 << endl;
                 //Receive info of file can be downloaded
-                Datafile files[10]; int n_list;
+                Datafile files[10]; int n_list; int files_data;
                 Client.Receive((char*)&n_list, sizeof(n_list), 0);
-                Client.Receive((char*)&files, sizeof(files), 0);
+                files_data = Client.Receive((char*)&files, sizeof(files), 0);
+                if (files_data == 0) { cout << "Cannot get data files!!\n"; return nRetCode; }
                 cout << "List of file can be downloaded:\n";
                 for (int i = 0; i < n_list; i++)
                     cout << files[i].filename << " " << files[i].size << endl;
@@ -148,11 +149,12 @@ int main()
                     //Using flag to transfer signal when Clients is exit
                     bool flag = 0; Client.Send((char*)&flag, sizeof(flag), 0);
                     //Get info all file need to be download from input file
-                    char require_file[20][20]; int list_refile;
+                    char require_file[20][20]; int list_refile; int data_file = 0;
                     GetinfoInputFile(require_file, list_refile);
                     //Download file from server
                     Client.Send((char*)&list_refile, sizeof(list_refile), 0);
-                    Client.Send((char*)&require_file, sizeof(require_file), 0);
+                    data_file = Client.Send((char*)&require_file, sizeof(require_file), 0);
+                    if (data_file == 0) { cout << "Cannot download file!!\n"; continue; }
                     Client.Send((char*)&idx, sizeof(idx), 0);
                     for (; idx < list_refile; idx++) {
                         if (CheckExist(files, require_file[idx], n_list))
@@ -160,7 +162,7 @@ int main()
                         else cout << "'" << require_file[idx] << "'" << " is not found!!\n";
                     }
                     cout << "Waiting for downloading...";
-                    Sleep(5000); cout << "\r";
+                    Sleep(1000); cout << "\r";
                 }
                 Client.ShutDown(2);
                 Client.Close();
