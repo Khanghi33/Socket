@@ -58,49 +58,97 @@ void GetinfoInputFile(char require_file[][20], int& n) {
     }
     fin.close();
 }
+//Send buffer to clients
+bool Send_buffer(CSocket& Server, char* buffer, int buffer_size) {
+    int total_size_send = 0;
+    while (total_size_send < buffer_size) {
+        int bytes_send = 0;
+        bytes_send = Server.Send(&buffer[total_size_send], buffer_size - total_size_send);
+        if (bytes_send == 0) return false;
+        total_size_send += bytes_send;
+    }
+    return true;
+}
+//Receive buffer from clients
+bool Receive_buffer(CSocket& Server, char* buffer, int buffer_size) {
+    int total_size_recv = 0;
+    while (total_size_recv < buffer_size) {
+        int bytes_recv = 0;
+        bytes_recv = Server.Receive(&buffer[total_size_recv], buffer_size - total_size_recv);
+        if (bytes_recv == 0) return false;
+        total_size_recv += bytes_recv;
+    }
+    return true;
+}
 //Download file
-void RecieveFile(CSocket &Client, char require_file[]) {
+bool Receive_file(CSocket& Client, char require_file[]) {
     string filename(require_file);
-    ShowCur(0);
-    int file_size, bytes_recieve;
-    //Recieve file size from server
-    bytes_recieve = Client.Receive((char*)&file_size, sizeof(file_size), 0);
-    char buffer1[10000];
-    char* buffer2;
-    if (bytes_recieve != sizeof(file_size)) { cout << "Cannot download!!\n"; return; }
-    //Create a new file to store data
     fstream fout("Data/" + filename, ios::out | ios::binary);
-    int total_data = 0;
-    cout << "......Downloading " << filename;
-    while (total_data < file_size) {
-        //Using char[] when it has still has more than 1028 bytes to download fastly
-        if (total_data <= file_size - 10000){
-            //Recieve file data from Server
-            bytes_recieve = Client.Receive((char*)&buffer1, sizeof(buffer1), 0);
-            if (bytes_recieve < 1) { cout << "\nCannot download!!\n"; return; }
-            //Store data to new file
-            fout.write((char*)&buffer1, sizeof(buffer1));
-            total_data += bytes_recieve;
-            //Print percent downloading
-            cout << "\r" << int((total_data / float(file_size)) * 100) << "%";
-        }
-        //Using char* when it just has a little bit of bytes to dowload exactly
-        else {
-            buffer2 = new char[file_size - total_data];
-            //Recieve file data from Server
-            bytes_recieve = Client.Receive(buffer2, file_size - total_data, 0);
-            if (bytes_recieve < 1) { cout << "\nCannot download!!\n"; return; }
-            //Store data to new file
-            fout.write(buffer2, file_size - total_data);
-            total_data += bytes_recieve;
-            //Print percent downloading
-            cout << "\r" << int((total_data / float(file_size)) * 100) << "%";
-        }
+    if (!fout) { cout << "Cannot open " << filename << " !!\n"; return false; }
+    int bytes_recv = 0, total_bytes_recv = 0;
+    //Create buffer
+    const int BUFFER_SIZE = 1024;
+    char buffer[BUFFER_SIZE];
+    //Get file size from server
+    int file_size = 0;
+    bytes_recv = Client.Receive((char*)&file_size, sizeof(file_size), 0);
+    if (bytes_recv < sizeof(file_size)) { cout << "Cannot download file!!\n"; return false; }
+    cout << ".......Downloading " << filename;
+    while (total_bytes_recv < file_size) {
+        bytes_recv = min(file_size - total_bytes_recv, BUFFER_SIZE);
+        if (!Receive_buffer(Client, buffer, bytes_recv)) return false;
+        fout.write((char*)&buffer, bytes_recv);
+        total_bytes_recv += bytes_recv;
+        cout << "\r" << int((total_bytes_recv / float(file_size)) * 100) << "%";
     }
     cout << endl;
     fout.close();
-    ShowCur(1);
+    return true;
 }
+////Download file
+//void RecieveFile(CSocket &Client, char require_file[]) {
+//    string filename(require_file);
+//    ShowCur(0);
+//    int file_size, bytes_recieve;
+//    //Recieve file size from server
+//    bytes_recieve = Client.Receive((char*)&file_size, sizeof(file_size), 0);
+//    char buffer1[10000];
+//    if (bytes_recieve != sizeof(file_size)) { cout << "Cannot download!!\n"; return; }
+//    //Create a new file to store data
+//    fstream fout("Data/" + filename, ios::out | ios::binary);
+//    int total_data = 0;
+//    cout << "......Downloading " << filename;
+//    while (total_data < file_size) {
+//        //Using char[] when it has still has more than 1028 bytes to download fastly
+//        if (total_data <= file_size - 10000){
+//            //Recieve file data from Server
+//            bytes_recieve = Client.Receive((char*)&buffer1, sizeof(buffer1), 0);
+//            if (bytes_recieve < 1) { cout << "\nCannot download!!\n"; return; }
+//            //Store data to new file
+//            fout.write((char*)&buffer1, sizeof(buffer1));
+//            total_data += bytes_recieve;
+//            //Print percent downloading
+//            cout << "\r" << int((total_data / float(file_size)) * 100) << "%";
+//        }
+//        //Using char* when it just has a little bit of bytes to dowload exactly
+//        else {
+//            char* buffer2;
+//            buffer2 = new char[file_size - total_data];
+//            //Recieve file data from Server
+//            bytes_recieve = Client.Receive(buffer2, file_size - total_data, 0);
+//            if (bytes_recieve < 1) { cout << "\nCannot download!!\n"; return; }
+//            //Store data to new file
+//            fout.write(buffer2, file_size - total_data);
+//            total_data += bytes_recieve;
+//            //Print percent downloading
+//            cout << "\r" << int((total_data / float(file_size)) * 100) << "%";
+//            delete buffer2;
+//        }
+//    }
+//    cout << endl;
+//    fout.close();
+//    ShowCur(1);
+//}
 int main()
 {
     ShowCur(0);
@@ -158,7 +206,7 @@ int main()
                     Client.Send((char*)&idx, sizeof(idx), 0);
                     for (; idx < list_refile; idx++) {
                         if (CheckExist(files, require_file[idx], n_list))
-                            RecieveFile(Client, require_file[idx]);
+                            Receive_file(Client, require_file[idx]);
                         else cout << "'" << require_file[idx] << "'" << " is not found!!\n";
                     }
                     cout << "Waiting for downloading...";

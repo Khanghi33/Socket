@@ -4,7 +4,6 @@ file3.zip 20MB
 file4.zip 50MB
 file5.zip 100MB
 file6.zip 200MB
-file7.zip 500MB
-file8.zip 1GB
-image1.jpg 32KB
+Barca09.jpg 100KB
+Messi1.jpg 100KB
 filedata.txt 1KB
